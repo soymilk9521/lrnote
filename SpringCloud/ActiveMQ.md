@@ -340,7 +340,328 @@ JMS message：
 
 
 
+#### 五、ActiveMQ的Broker
+
+##### 		是什么？
+
+​				Broker是MQ服务器的一个实例。
 
 
 
+#### 六、ActiveMQ和Spring框架整合
 
+#### 七、ActiveMQ和Springboot框架整合
+
+##### 		  队列：
+
+​				生产者：触发投送，间隔投送（@scheduled，@EnableScheduling）
+
+​				消费者：监听接收消息（@JmsListener）
+
+##### 		  主题：
+
+​				生产者：触发投送，间隔投送（@scheduled，@EnableScheduling）
+
+​				消费者：监听接收消息（@JmsListener）
+
+#### 八、[ActiveMQ传输协议](https://activemq.apache.org/protocols)
+
+##### 	TCP(Transmission Control Protocol)
+
+###### 		这是默认的Broker配置，TCP的Client监听端口61616
+
+###### 		在网络传输数据前，必须要序列化数据，消息是通过一个叫wire protocol的来序列化纯字节流。默认情况下ActiveMQ吧wire  protocol叫做OpenWire，他的目的是促使网络上的效率和数据快速交互。
+
+###### 		TCP连接到URI形式如：tcp://hostname:port?key=value&key=value，后面的参数是可选
+
+###### 		TCP传输的优点
+
+​			TCP协议传输可靠性高，稳定性强
+
+​			高效性：字节流方式传递，效率高	
+
+​			有效性，可用性：应用广泛，支持任何平台
+
+###### 		[关于Transport协议的可配置参数可以参考官网](https://activemq.apache.org/tcp-transport-reference)
+
+##### 	NIO(New I/O API Protocol)
+
+​		[配置NIO协议](https://activemq.apache.org/activemq-connection-uris)：修改${ACTIVEMQ_HOME}/conf/activemq.xml
+
+```xml
+<transportConnectors>
+    <transportConnector name="nio" uri="nio://0.0.0.0:61616"/>  
+</<transportConnectors>
+```
+
+​		默认所有协议使用BIO网络模型，配置NIO网络模型后，仅支持tcp传输协议。因此要[开启自动NIO](https://activemq.apache.org/auto)
+
+```xml
+<transportConnector name="auto+nio" uri="auto+nio://0.0.0.0:61608?maximumConnections=1000&amp;wireFormat.maxFrameSize=104857600&amp;org.apache.activemq.transport.nio.SelectorManager.corePoolSize=20&amp;org.apache.activemq.transport.nio.SelectorManager.maximumPoolSize=50"/>
+```
+
+##### 	其他协议
+
+- AMQP协议
+- STOMP协议
+- SSL协议（Secure Socket Layer Protocol）
+- MQTT协议（Message Queuing Telemetry Transport）：消息队列遥测传输，即时通讯协议，IOT相关，未来有前景
+- WS协议
+
+​		
+
+#### 九、ActiveMQ持久化机制
+
+##### 		MQ高可用：
+
+​			1. 事务  		MQ自带
+
+​			2. 持久化	  MQ自带	
+
+​			3. 签收          MQ自带
+
+​			4. [可持久化机制](https://activemq.apache.org/persistence)
+
+​					MQ服务器宕机了，消息也不会丢失的机制。JDBC、AMQ、KahaDB、LevelDB等来实现。
+
+##### 		AMQ Message Store（了解）：
+
+​				基于文件的存储方式，是以前默认的消息存储，现在不用了。
+
+##### 		[KahaDB](https://activemq.apache.org/kahadb)消息存储（默认）：
+
+​				基于日志文件，V5.4开始默认持久化插件。消息存储使用一个事务日志和一个索引文件来存储他所有的地址。
+
+​				KahaDB是一个转么针对消息持久化的解决方案，他对典型的消息使用模式进行了优化。
+
+​				数据被追加到data logs中。当不再需要log文件中的数据的时候log文件会被丢弃。
+
+​				KahaDB文件解析：
+
+​						db-1.log是日志数据。
+
+​						db.data文件是一个**BTree**索引。
+
+​						db.free当前db.data文件里哪些页面是空闲的，文件具体内容是所有空闲页面的ID
+
+​						db.free是db.data和db.free的恢复和容灾机制。
+
+​						lock锁文件，写独占查询共享和公开。
+
+​			    回顾mysql原理，每创建一张表都会生成三个文件：
+
+​						user.frm（表结构） 
+
+​						user.MYD（新华字典正文） 
+
+​						user.MYI（新华字典索引）
+
+##### LevelDB消息存储（了解）
+
+​		基于文件的本地数据库存储形式，比KahaDB更快的持久性。不是有B-Tree实现索引预写日志，二十使用基于LevelDB的索引。
+
+##### JDBC消息存储
+
+	- MQ + Mysql
+	- 添加mysql数据的驱动包到lib文件夹
+	- jdbcPersistenceAdapter配置
+	- 数据库连接池配置
+	- SQL建仓和建表说明
+	- 代码运行验证
+	- 数据库情况
+
+##### JDBC Message store with ActiveMQ journal
+
+- 消息的生成和接收可以不直接操作数据库，为提高效率，可以把消息保存到journal文件中，如果消费者的消费速度下降，就可以批量将消息保存到DB中。
+
+
+
+#### 十、[ActiveMQ集群](https://activemq.apache.org/masterslave)
+
+​	![image-20200620074336084](C:\Users\bigtiger\AppData\Roaming\Typora\typora-user-images\image-20200620074336084.png)
+
+
+
+##### zookeeper集群
+
+1. 使用docker compose搭建zookeeper集群
+
+```yml
+version: '3.7'
+
+services:
+  zoo1:
+    container_name: zoo1
+    image: zookeeper
+    hostname: zoo1
+    networks:
+      - zoo
+    ports:
+      - 2181:2181
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=0.0.0.0:2888:3888;2181 server.2=zoo2:2888:3888;2181 server.3=zoo3:2888:3888;2181
+
+  zoo2:
+    container_name: zoo2
+    image: zookeeper
+    hostname: zoo2
+    networks:
+      - zoo
+    ports:
+      - 2182:2181
+    environment:
+      ZOO_MY_ID: 2
+      ZOO_SERVERS: server.1=zoo1:2888:3888;2181 server.2=0.0.0.0:2888:3888;2181 server.3=zoo3:2888:3888;2181
+    
+  zoo3:
+    container_name: zoo3
+    image: zookeeper
+    hostname: zoo3
+    networks:
+      - zoo
+    ports:
+      - 2183:2181
+    environment:
+      ZOO_MY_ID: 3
+      ZOO_SERVERS: server.1=zoo1:2888:3888;2181 server.2=zoo2:2888:3888;2181 server.3=0.0.0.0:2888:3888;2181
+    
+networks:
+  zoo:
+```
+
+2. 启动客zookeeper户端
+
+```shell
+# 客户端连接单个zookeeper服务
+docker run -it --rm --link zoo1:zookeeper --net myzookeeper_zoo zookeeper zkCli.sh -server zookeeper
+
+# 客服端连接zookeeper集群
+docker run -it --rm \
+        --link zoo1:zk1 \
+        --link zoo2:zk2 \
+        --link zoo3:zk3 \
+        --net myzookeeper_zoo \
+        zookeeper zkCli.sh -server zk1:2181,zk2:2181,zk3:2181
+        
+docker run -it --rm zookeeper zkCli.sh -server lrmq-server:2181
+```
+
+添加端口
+
+```shell
+ firewall-cmd --zone=public --list-ports
+ firewall-cmd --zone=public --add-port=2182/tcp --permanent
+ firewall-cmd --zone=public --add-port=2183/tcp --permanent
+ firewall-cmd --reload
+ firewall-cmd --zone= public --query-port=80/tcp
+ firewall-cmd --zone=public --query-port=80/tcp
+ firewall-cmd --zone=public --query-port=2181/tcp
+ firewall-cmd --zone=public --query-port=2182/tcp
+ firewall-cmd --zone=public --query-port=2183/tcp
+ firewall-cmd --zone=public --remove-port=61613/tcp --permanent
+
+```
+
+[replicated-leveldb-store](https://activemq.apache.org/replicated-leveldb-store)
+
+#### 十一、面试题
+
+- **引用消息队列之后该如何保障其高可用性？**
+
+  > 持久化、事务、签收；持久化机制（KahaDB、JDBC、JDBC Journal、zookeeper+replicated-leveldb-store**主从集群**）
+
+- **异步投递是什么？**
+
+  > ActiveMQ支持同步和异步两种发送模式将消息发送到broker，模式的选择对发送演示有巨大的影响。使用一步发送可以显著的提高发送的性能。
+  >
+  > 同步模式：声明指定使用同步发送模式；未使用事务的前提下发送持久化的消息。
+  >
+  > **没有使用事务且发送的是持久化**的消息，每次发送都是同步发送的且会阻塞producer直到broker返回一个确认，表示消息已经被安全的持久化到磁盘。确认及时体统了消息的安全保障，但同时阻塞客户端带来了很大的延迟。
+  >
+  > 很多高性能的应用，允许在失败的情况下有少量的数据丢失。如果你的应用满足这个特点，你可以使用异步发送来提高生产率，即使是发送的持久化的消息。
+  >
+  > **异步投递应用场景**：通常在发送消息量比较密集的情况下使用异步发送。容忍消息丢失的可能。
+  >
+  > **异步投递问题**：小号较多的客户端内存的同时，也会导致broker性能消耗增加。不能有效的保证消息的发送成功，消息可能丢失。慢消费的情况下造成消息积压。
+  >
+  > [异步投递设置](https://activemq.apache.org/async-sends)
+
+- **如果保证异步发送消息成功？**
+
+  > 正确的异步发送方法是需要使用接收回调的。
+  >
+  > 同步发送和异步发送的区别就在此，同步发送等send不阻塞了就表示一定发送成功了。异步发送需要接收回执并由客户端在判断一次是否发送成功。
+
+
+
+**[延时投递和定时投递](https://activemq.apache.org/delay-and-schedule-message-delivery)**
+
+![image-20200620220806974](C:\Users\bigtiger\AppData\Roaming\Typora\typora-user-images\image-20200620220806974.png)
+
+**分发策略**
+
+**[重发机制](https://activemq.apache.org/redelivery-policy)  **
+
+- 具体哪些情况会引发消息重发？
+
+  > Client用了transactions，session调用了rollback方法
+  >
+  > Client用了transactions，在调用commit方法之前关闭或者没有commit
+  >
+  > Client在CLIENT_ACKNOWLEDGE的传递模式，session中调用了recover方法
+
+- 请说说消息重发时间价格和重发次数？
+
+  > 间隔：1
+  >
+  > 次数：6
+
+- 有毒消息Poison ACK谈谈你的理解？
+
+  > 一个消息被redelivered超过默认的最大重发次数时，消费端会给MQ发送一个poison ack表示消息有毒，告诉broker不要再发了。这个是后borker会把消息放到DLQ（死信列队）。
+
+**[死性队列(Dead Letter Queue)](https://activemq.apache.org/message-redelivery-and-dlq-handling)**
+
+- 是什么
+
+  > 死信队列是异常处理消息的集合。
+  >
+  > ActiveMQ中引入了死信队列的概念.即一条消息在被重发了多次后（默认为重发六次），将会被ActiveMQ移入死信队列。开发人员可以在这个Queue中查看处理错误的消息，进行人工干预。
+
+##### 幂等性
+
+- 是什么
+
+  > 网络传输中，会造成进行MQ重试中，在重试过程中，可能会造成重复消费。
+  >
+  > 如果消息是做数据库的插入操作，给这个消息做一个唯一主键，那么就算出重复消费的情况，就会导致主键冲突，避免数据库出现脏数据。
+  >
+  > 如果上面两种情况还不行，准备一个第三服务放来做消费记录。一redis为例，给消息分配一个全局ID，只要消费国该消息，将id，message以k-v形式写入redis。消费者开始消费前，先去redis中查询有没有消费记录即可。
+
+#### 十二、搭建过程中遇到的问题
+
+1. LevelDB配置错误
+
+   端口配置错误：tcp://0.0.0.0:**0:**63631
+
+   ```xml
+   <persistenceAdapter>
+       <replicatedLevelDB
+       directory="${activemq.data}/leveldb"
+       replicas="3"
+       bind="tcp://0.0.0.0:63631" # 端口配置错误
+       zkAddress="192.168.80.71:2181,192.168.80.71:2182,192.168.80.71:2183"
+       zkPath="/activemq/leveldb-stores"
+       hostname="lrmq-server"  # 主机地址
+       sync="local_disk" />
+   </persistenceAdapter>
+   ```
+
+   原因不明？？？
+
+   ![image-20200621130249429](C:\Users\bigtiger\AppData\Roaming\Typora\typora-user-images\image-20200621130249429.png)
+
+   
+
+   
